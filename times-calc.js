@@ -1,5 +1,5 @@
 javascript: function generateOutput(defaultCoords, defaultDate) {
-  let output = `<div style="text-align:center" id="snipe_output"><br/>
+  let output = `<div style="text-align:center" id="attack_planner"><br/>
     <h4 style="margin-top:5px">Attack Planner</h4>
         <div id="times_setup">
         Target village: 
@@ -7,6 +7,7 @@ javascript: function generateOutput(defaultCoords, defaultDate) {
         Hit time:<input id="arrival_time" size="25" class="text-input inactive" value="${defaultDate}" onFocus="this.select()" />
         <input type="button" value="Go" onClick="fnCalculateBackTime()" />
         </div>
+        <div id="times_output"></div>
     </div>`;
 
   return output;
@@ -168,16 +169,19 @@ function fnCalculateBackTime() {
   );
 
   var serverTime = getServerTime();
-  var targets = document.getElementById("snipe_coord").value.split(" ").filter(t => t !== '');
+  var targets = document
+    .getElementById("snipe_coord")
+    .value.split(" ")
+    .filter((t) => t !== "");
 
   var output = [];
 
   console.log(targets);
   targets.forEach((target) => {
-      console.log(target)
+    console.log(target);
     currentOutput = getVillages(arrivalTime, target, serverTime);
     output = output.concat(currentOutput);
-    console.log(output)
+    console.log(output);
   });
 
   //   var output = getVillages(arrivalTime, target, serverTime);
@@ -211,17 +215,15 @@ function fnCalculateBackTime() {
   }
 
   srcHTML += "<br/><br/><br/>";
-
-  //   win.$("#snipe_output").html("");
-  //   win.$("#snipe_output").append(win.$(srcHTML));
-  win.$(srcHTML).insertAfter(win.$("#times_setup"));
+  win.$("#times_output").html("");
+  win.$("#times_output").append(win.$(srcHTML));
 }
 
 try {
   if (game_data.screen == "overview_villages" && game_data.mode == "combined") {
     var win = window;
 
-    if (win.$("#snipe_output").length <= 0) {
+    if (win.$("#attack_planner").length <= 0) {
       var msPerSec = 1000;
       var secsPerMin = 60;
       var minsPerHour = 60;
