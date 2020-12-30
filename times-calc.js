@@ -1,16 +1,26 @@
 javascript: function generateOutput(defaultCoords, defaultDate) {
-  let output = `<div style="text-align:center" id="attack_planner"><br/>
-    <h4 style="margin-top:5px">Attack Planner</h4>
-        <div id="times_setup">
-        Target village: 
-        <input id="snipe_coord" value="${defaultCoords}" class="text-input inactive" size="7" onFocus="this.select()" />
-        Hit time:<input id="arrival_time" size="25" class="text-input inactive" value="${defaultDate}" onFocus="this.select()" />
-        <input type="button" value="Go" onClick="fnCalculateBackTime()" />
-        </div>
+  let output = `<div style="text-align:center; margin-bottom: 10px;" id="attack_planner">
+        <table id="times_setup" style="padding:10px">
+        <tr><th colspan="2">Attack Planner</th></tr>
+        <tr>
+        <th style="text-align:right">Target villages: </th>
+        <td style="text-align:right"><textarea id="snipe_coord" class="text-input inactive" rows="2" onFocus="this.select()">${defaultCoords}</textarea></td>
+        </tr>
+        <tr>
+        <th style="text-align:right">Hit time:</th>
+        <td style="text-align:right"><input id="arrival_time" size="20" class="text-input inactive" value="${defaultDate}" onFocus="this.select()" />
+        <input type="button" value="Go" onClick="fnCalculateBackTime()" /></td>
+        </tr>
+        </table>
         <div id="times_output"></div>
     </div>`;
 
   return output;
+}
+
+function generateResultView(villages) {
+  let output = "";
+  console.log(villages);
 }
 
 function fnInjectOverviewBar() {
@@ -30,7 +40,6 @@ function fnInjectOverviewBar() {
     .replace(/\w+\s*/i, "")
     .replace(/(\d*:\d*:\d*)(.*)/i, "$1");
 
-  //fnInjectUnits();
   win
     .$(generateOutput(defaultCoords, defaultDate))
     .insertBefore(win.$("#combined_table"));
@@ -93,6 +102,22 @@ function fnCreateWorldConfig() {
   return fnCreateConfig("get_config");
 }
 
+function getServerTime() {
+  var servertime = win.$("#serverTime").html().match(/\d+/g);
+  var serverDate = win.$("#serverDate").html().match(/\d+/g);
+  serverTime = new Date(
+    serverDate[1] +
+      "/" +
+      serverDate[0] +
+      "/" +
+      serverDate[2] +
+      " " +
+      servertime.join(":")
+  );
+
+  return serverTime;
+}
+
 function fnCalculateLaunchTime(source, target, unit, landingTime) {
   var distance = fnCalculateDistance(target, source);
   var unitSpeed = unitConfig.find(unit + " speed").text();
@@ -109,7 +134,35 @@ function fnCalculateLaunchTime(source, target, unit, landingTime) {
   return launchTime;
 }
 
-function getVillages(arrivalTime, target, serverTime) {
+function getLaunchData(arrivalTime, target, serverTime) {
+  let villages = [];
+  let unit = "ram"; //todo select dropdown
+
+  /* Loop through your own villages */
+  win.$("#combined_table tr:gt(0)").each(function (i, e) {
+    const source = fnExtractCoords($(this).find("td:eq(1)").html());
+
+    if (source == target) return;
+
+    const launchTime = fnCalculateLaunchTime(source, target, unit, arrivalTime);
+
+    if (launchTime.getTime() > serverTime.getTime()) {
+      villages.push({
+        time: launchTime.getTime(),
+        unit,
+        source,
+      });
+    }
+  });
+
+   villages = villages.sort(function (a, b) {
+     return a.time - b.time;
+   });
+
+  return villages;
+}
+
+function getOutputRow(arrivalTime, target, serverTime) {
   var output = [];
   var source, launchTime;
 
@@ -143,22 +196,6 @@ function getVillages(arrivalTime, target, serverTime) {
   return output;
 }
 
-function getServerTime() {
-  var servertime = win.$("#serverTime").html().match(/\d+/g);
-  var serverDate = win.$("#serverDate").html().match(/\d+/g);
-  serverTime = new Date(
-    serverDate[1] +
-      "/" +
-      serverDate[0] +
-      "/" +
-      serverDate[2] +
-      " " +
-      servertime.join(":")
-  );
-
-  return serverTime;
-}
-
 function fnCalculateBackTime() {
   var arrivalTime = new Date(
     document
@@ -175,21 +212,22 @@ function fnCalculateBackTime() {
     .filter((t) => t !== "");
 
   var output = [];
+  const result = {};
 
-  console.log(targets);
   targets.forEach((target) => {
-    console.log(target);
-    currentOutput = getVillages(arrivalTime, target, serverTime);
+    currentOutput = getOutputRow(arrivalTime, target, serverTime);
     output = output.concat(currentOutput);
-    console.log(output);
+    result[target] = getLaunchData(arrivalTime, target, serverTime);
   });
 
-  //   var output = getVillages(arrivalTime, target, serverTime);
+  console.log("Result Data:", result)
 
   /* Sort by Launch Time in Ascending Order */
   output = output.sort(function (a, b) {
     return a[0] - b[0];
   });
+
+  generateResultView(output);
 
   /* Clear existing messages and display version */
   var srcHTML = "";

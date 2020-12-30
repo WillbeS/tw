@@ -13,3 +13,17 @@ function getServerTime() {
 
   return serverTime;
 }
+
+
+function getQueryParams(url) {
+  const urlParts = url.split("?");
+  let queryParams = {};
+  if (urlParts.length === 2) {
+    const queryStrings = urlParts[1].split("&").forEach((qs) => {
+      [param, value] = qs.split("=");
+      queryParams[param] = value;
+    });
+  }
+
+  return queryParams;
+}
