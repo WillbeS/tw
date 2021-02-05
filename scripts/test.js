@@ -125,11 +125,12 @@ function calculateSupport() {
 
     //units
     for (let i = 1; i < rowData.length; i++) {
-      const unitName = game_data.units[i - 1];
       if (unitName === "militia") continue;
 
+      const unitName = game_data.units[i - 1];
       const unitCount = parseInt($(rowData[i]).text());
       const unitPop = unitCount * getUnitPop(unitName);
+      console.log(unitName, unitPop);
 
       if (!playerName) {
         if (!own.totalUnits[unitName]) {

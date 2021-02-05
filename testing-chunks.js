@@ -8,15 +8,14 @@ javascript: try {
     queryParams.mode !== "units" ||
     queryParams.type !== "away_detail"
   ) {
-    console.log("redirect");
     UI.InfoMessage("Going to the troops/support overview...", 3000, "success");
     window.location = `${game_data.link_base_pure}${correctUrl}`;
   } else {
     const data = calculateSupport();
-
-    if ($("#result_box").length <= 0) {
-      $(generateOutput(data)).insertAfter($("#overview_menu"));
-    }
+    console.log(data);
+    // if ($("#result_box").length <= 0) {
+    //   $(generateOutput(data)).insertAfter($("#overview_menu"));
+    // }
   }
 } catch (objError) {
   var dbgMsg = "Error: " + String(objError.message || objError);
@@ -66,8 +65,8 @@ function getQueryParams(url) {
 
 function calculateSupport() {
   const tribes = {};
-  const barbs = { totalUnits: {}, villages: {} }; //support in barbs - todo
-  const own = { totalUnits: {}, villages: {} }; //your own villages
+  const barbs = { totalUnits: {}, villages: {} };
+  const own = { totalUnits: {}, pop: 0, villages: {} };
 
   const tableRows = $("#units_table").find("tbody tr");
 
@@ -127,9 +126,10 @@ function calculateSupport() {
     //units
     for (let i = 1; i < rowData.length; i++) {
       const unitName = game_data.units[i - 1];
+      if (unitName === "militia") continue;
+
       const unitCount = parseInt($(rowData[i]).text());
       const unitPop = unitCount * getUnitPop(unitName);
-      console.log(unitPop);
 
       if (!playerName) {
         if (!own.totalUnits[unitName]) {
@@ -168,130 +168,12 @@ function calculateSupport() {
         tribes[tribeName].players[playerName].villages[villageName].units[
           unitName
         ] += unitCount;
-        /////////
       }
     }
+    ///////////////////////
   });
 
   return { tribes, own };
-}
-
-function generateOutput(data) {
-  console.log(data);
-  tribeRows = "";
-  for (tribeName in data.tribes) {
-    const tribe = data.tribes[tribeName];
-    tribeName = tribeName === "" ? "Tribeless" : tribeName;
-    let playerDetails = "";
-    let count = 0;
-    for (playerName in tribe.players) {
-      const player = tribe.players[playerName];
-      playerDetails += drawExpandableWidget(
-        `${playerName.replaceAll(/[^a-zA-Z\d_-]+/g, "")}_${++count}`,
-        playerName,
-        drawPlayerDetails(player.totalUnits, player.villages)
-      );
-    }
-
-    tribeRows += drawTribeRow(
-      tribeName,
-      drawUnits(tribe.totalUnits),
-      playerDetails
-    );
-  }
-
-  const tribesTable = drawTable(["Tribe", "Details", "Action"], tribeRows);
-  const ownDetails = drawPlayerDetails(data.own.totalUnits, data.own.villages);
-
-  return drawResultBox([
-    drawExpandableWidget(
-      "own_sup_table",
-      "Support in your own villages",
-      ownDetails
-    ),
-    drawExpandableWidget(
-      "tribes_sup_table",
-      "Support in other players villages",
-      tribesTable
-    ),
-  ]);
-}
-
-/////////////////////////////////////////////////////////////////
-// custom html
-function drawUnits(units) {
-  let output = "";
-  for (const unit in units) {
-    if (!units[unit]) continue;
-    output += `<span style="margin-right: 15px">${unit}: ${units[unit]}</span>`;
-  }
-
-  return output;
-}
-
-function drawTribeRow(tribeName, totalUnits, players) {
-  return `<tr>
-                    <th rowspan="2" style="width: 10%; text-align: center; font-size: 120%;">${tribeName}</th>
-                    <td>
-                        <div style="font-weight: bold;">Total Units (todo - pop):</div>
-                        ${totalUnits}
-                    </td>
-                    <td>Withdraw</td>
-                </tr>
-                <tr>
-                    <td colspan="2">
-                        <div style="font-weight: bold;">Units per Player (todo - pop):</div>
-                        ${players}
-                    </td>
-                </tr>`;
-}
-
-function drawPlayerDetails(totalUnits, villages) {
-  let unitsPerVillage = "";
-  for (villageName in villages) {
-    unitsPerVillage += `<tr class="nowrap">
-                                    <td style="background-color: #fff5da">
-                                    <a href="${
-                                      villages[villageName].url
-                                    }">${villageName}</a>
-                                    </td>
-                                    <td style="background-color: #fff5da">
-                                    ${drawUnits(villages[villageName].units)}
-                                    </td>
-                                </tr>`;
-  }
-
-  return `<table class="vis" width="100%">
-                            <tbody>
-                                <tr class="nowrap">
-                                    <td colspan="2" style="background-color: #fff5da">
-                                        <div style="font-weight: bold;">Total Units (todo - pop):</div>
-                                            ${drawUnits(totalUnits)}
-                                    </td>
-                                </tr>
-                                ${unitsPerVillage}
-                            </tbody>
-                        </table>`;
-}
-
-/////////////////////////////////////////////////////////////////
-// html templates
-function drawTable(headData, rows) {
-  headData = headData.map((hd) => `<th>${hd}</th>`).join("");
-
-  return `<table class="vis" width="100%">
-                        <thead>
-                            <tr style=" text-align: center;">
-                                ${headData}
-                            </tr>
-                        </thead>
-                    <tbody>${rows}</tbody>
-        </table>`;
-}
-
-function drawResultBox(content) {
-  content = content.join("");
-  return `<div id="result_box" style="margin-top: 15px">${content}</div>`;
 }
 
 void 0;
