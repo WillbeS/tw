@@ -63,6 +63,19 @@ function getQueryParams(url) {
   return queryParams;
 }
 
+function parseVillageData(villageData) {
+  const [village, blank, player, tribe] = $(villageData)
+    .find("span > a")
+    .toArray();
+
+  return {
+    playerName: $(player).text(),
+    tribeName: $(tribe).text() ? $(tribe).text() : "No Tribe",
+    villageUrl: $(village).attr("href"),
+    villageName: $(village).text(),
+  };
+}
+
 function calculateSupport() {
   const tribes = {};
   const barbs = { totalUnits: {}, villages: {} };
@@ -76,27 +89,17 @@ function calculateSupport() {
     }
 
     const rowData = $(row).find("td").toArray();
-    const villageData = $(rowData.shift());
-
-    const [village, blank, player, tribe] = $(villageData)
-      .find("span > a")
-      .toArray();
-
-    const playerName = $(player).text();
-    const tribeName = $(tribe).text();
-    const villageUrl = $(village).attr("href");
-    const villageName = $(village).text();
+    const { playerName, tribeName, villageUrl, villageName } = parseVillageData(
+      $(rowData.shift())
+    );
 
     if (!villageName) return;
 
+    let tribe = null;
+    let player = null;
+
     if (!playerName) {
-      if (!own.villages[villageName]) {
-        own.villages[villageName] = {
-          units: {},
-          pop: 0,
-          url: villageUrl,
-        };
-      }
+      player = own;
     } else {
       if (!tribes[tribeName]) {
         tribes[tribeName] = {
@@ -106,22 +109,28 @@ function calculateSupport() {
         };
       }
 
-      if (!tribes[tribeName].players[playerName]) {
-        tribes[tribeName].players[playerName] = {
+      tribe = tribes[tribeName];
+
+      if (!tribe.players[playerName]) {
+        tribe.players[playerName] = {
           totalUnits: {},
           pop: 0,
           villages: {},
         };
       }
 
-      if (!tribes[tribeName].players[playerName].villages[villageName]) {
-        tribes[tribeName].players[playerName].villages[villageName] = {
-          units: {},
-          pop: 0,
-          url: villageUrl,
-        };
-      }
+      player = tribe.players[playerName];
     }
+
+    if (!player.villages[villageName]) {
+      player.villages[villageName] = {
+        units: {},
+        pop: 0,
+        url: villageUrl,
+      };
+    }
+
+    village = player.villages[villageName];
 
     //units
     for (let i = 1; i < rowData.length; i++) {
@@ -131,46 +140,27 @@ function calculateSupport() {
       const unitCount = parseInt($(rowData[i]).text());
       const unitPop = unitCount * getUnitPop(unitName);
 
-      if (!playerName) {
-        if (!own.totalUnits[unitName]) {
-          own.totalUnits[unitName] = 0;
-        }
+      if (!player.totalUnits[unitName]) {
+        player.totalUnits[unitName] = 0;
+      }
 
-        if (!own.villages[villageName].units[unitName]) {
-          own.villages[villageName].units[unitName] = 0;
-        }
+      if (!village.units[unitName]) {
+        village.units[unitName] = 0;
+      }
 
-        own.totalUnits[unitName] += unitCount;
-        own.pop += unitPop;
-        own.villages[villageName].units[unitName] += unitCount;
-        own.villages[villageName].pop += unitPop;
-      } else {
-        if (!tribes[tribeName].totalUnits[unitName]) {
-          tribes[tribeName].totalUnits[unitName] = 0;
-        }
+      player.totalUnits[unitName] += unitCount;
+      player.pop += unitPop;
+      village.units[unitName] += unitCount;
+      village.pop += unitPop;
 
-        if (!tribes[tribeName].players[playerName].totalUnits[unitName]) {
-          tribes[tribeName].players[playerName].totalUnits[unitName] = 0;
+      if (tribe) {
+        if (!tribe.totalUnits[unitName]) {
+          tribe.totalUnits[unitName] = 0;
         }
-
-        if (
-          !tribes[tribeName].players[playerName].villages[villageName].units[
-            unitName
-          ]
-        ) {
-          tribes[tribeName].players[playerName].villages[villageName].units[
-            unitName
-          ] = 0;
-        }
-
-        tribes[tribeName].totalUnits[unitName] += unitCount;
-        tribes[tribeName].players[playerName].totalUnits[unitName] += unitCount;
-        tribes[tribeName].players[playerName].villages[villageName].units[
-          unitName
-        ] += unitCount;
+        tribe.totalUnits[unitName] += unitCount;
+        tribe.pop += unitPop;
       }
     }
-    ///////////////////////
   });
 
   return { tribes, own };
