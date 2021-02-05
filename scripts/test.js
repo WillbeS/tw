@@ -66,7 +66,7 @@ function getQueryParams(url) {
 function calculateSupport() {
   const tribes = {};
   const barbs = { totalUnits: {}, villages: {} };
-  const own = { totalUnits: {}, villages: {} };
+  const own = { totalUnits: {}, pop: 0, villages: {} };
 
   const tableRows = $("#units_table").find("tbody tr");
 
@@ -125,12 +125,11 @@ function calculateSupport() {
 
     //units
     for (let i = 1; i < rowData.length; i++) {
+      const unitName = game_data.units[i - 1];
       if (unitName === "militia") continue;
 
-      const unitName = game_data.units[i - 1];
       const unitCount = parseInt($(rowData[i]).text());
       const unitPop = unitCount * getUnitPop(unitName);
-      console.log(unitName, unitPop);
 
       if (!playerName) {
         if (!own.totalUnits[unitName]) {
@@ -169,9 +168,9 @@ function calculateSupport() {
         tribes[tribeName].players[playerName].villages[villageName].units[
           unitName
         ] += unitCount;
-        /////////
       }
     }
+    ///////////////////////
   });
 
   return { tribes, own };
