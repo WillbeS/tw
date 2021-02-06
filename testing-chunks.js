@@ -64,21 +64,28 @@ function getQueryParams(url) {
 }
 
 function parseVillageData(villageData) {
+  if (villageData.length === 0) return {};
+
   const [village, blank, player, tribe] = $(villageData)
     .find("span > a")
     .toArray();
 
   return {
+    text: villageData.text(),
     playerName: $(player).text(),
-    tribeName: $(tribe).text() ? $(tribe).text() : "No Tribe",
+    tribeName: $(tribe).text(),
     villageUrl: $(village).attr("href"),
     villageName: $(village).text(),
   };
 }
 
+function isBarb(text) {
+  return text.search("(---)") !== -1;
+}
+
 function calculateSupport() {
-  const tribes = {};
-  const barbs = { totalUnits: {}, villages: {} };
+  const players = { totalUnits: {}, pop: 0, tribes: {} };
+  const barbs = { totalUnits: {}, pop: 0, villages: {} };
   const own = { totalUnits: {}, pop: 0, villages: {} };
 
   const tableRows = $("#units_table").find("tbody tr");
@@ -89,9 +96,13 @@ function calculateSupport() {
     }
 
     const rowData = $(row).find("td").toArray();
-    const { playerName, tribeName, villageUrl, villageName } = parseVillageData(
-      $(rowData.shift())
-    );
+    const {
+      text,
+      playerName,
+      tribeName,
+      villageUrl,
+      villageName,
+    } = parseVillageData($(rowData.shift()));
 
     if (!villageName) return;
 
@@ -99,17 +110,17 @@ function calculateSupport() {
     let player = null;
 
     if (!playerName) {
-      player = own;
+      player = isBarb(text) ? barbs : own;
     } else {
-      if (!tribes[tribeName]) {
-        tribes[tribeName] = {
+      if (!players.tribes[tribeName]) {
+        players.tribes[tribeName] = {
           totalUnits: {},
           pop: 0,
           players: {},
         };
       }
 
-      tribe = tribes[tribeName];
+      tribe = players.tribes[tribeName];
 
       if (!tribe.players[playerName]) {
         tribe.players[playerName] = {
@@ -154,16 +165,21 @@ function calculateSupport() {
       village.pop += unitPop;
 
       if (tribe) {
+        if (!players.totalUnits[unitName]) {
+          players.totalUnits[unitName] = 0;
+        }
         if (!tribe.totalUnits[unitName]) {
           tribe.totalUnits[unitName] = 0;
         }
+        players.totalUnits[unitName] += unitCount;
         tribe.totalUnits[unitName] += unitCount;
         tribe.pop += unitPop;
+        players.pop += unitPop;
       }
     }
   });
 
-  return { tribes, own };
+  return { players, own, barbs };
 }
 
 void 0;

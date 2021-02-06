@@ -227,7 +227,7 @@ function generateOutput(data) {
     ),
     drawExpandableWidget(
       "tribes_sup_table",
-      `Support in other players villages`,
+      `Support in other players villages (${data.players.pop} population)`,
       tribesTable
     ),
     drawExpandableWidget(
