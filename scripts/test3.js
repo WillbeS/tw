@@ -63,10 +63,30 @@ function getQueryParams(url) {
   return queryParams;
 }
 
+function parseVillageData(villageData) {
+  if (villageData.length === 0) return {};
+
+  const [village, blank, player, tribe] = $(villageData)
+    .find("span > a")
+    .toArray();
+
+  return {
+    text: villageData.text(),
+    playerName: $(player).text(),
+    tribeName: $(tribe).text(),
+    villageUrl: $(village).attr("href"),
+    villageName: $(village).text(),
+  };
+}
+
+function isBarb(text) {
+  return text.search("(---)") !== -1;
+}
+
 function calculateSupport() {
-  const tribes = {};
-  const barbs = { totalUnits: {}, villages: {} };
-  const own = { totalUnits: {}, villages: {} };
+  const players = { totalUnits: {}, pop: 0, tribes: {} };
+  const barbs = { totalUnits: {}, pop: 0, villages: {} };
+  const own = { totalUnits: {}, pop: 0, villages: {} };
 
   const tableRows = $("#units_table").find("tbody tr");
 
@@ -76,110 +96,97 @@ function calculateSupport() {
     }
 
     const rowData = $(row).find("td").toArray();
-    const villageData = $(rowData.shift());
-
-    const [village, blank, player, tribe] = $(villageData)
-      .find("span > a")
-      .toArray();
-
-    const playerName = $(player).text();
-    const tribeName = $(tribe).text();
-    const villageUrl = $(village).attr("href");
-    const villageName = $(village).text();
+    const {
+      text,
+      playerName,
+      tribeName,
+      villageUrl,
+      villageName,
+    } = parseVillageData($(rowData.shift()));
 
     if (!villageName) return;
 
+    let tribe = null;
+    let player = null;
+
     if (!playerName) {
-      if (!own.villages[villageName]) {
-        own.villages[villageName] = {
-          units: {},
-          pop: 0,
-          url: villageUrl,
-        };
-      }
+      player = isBarb(text) ? barbs : own;
     } else {
-      if (!tribes[tribeName]) {
-        tribes[tribeName] = {
+      if (!players.tribes[tribeName]) {
+        players.tribes[tribeName] = {
           totalUnits: {},
           pop: 0,
           players: {},
         };
       }
 
-      if (!tribes[tribeName].players[playerName]) {
-        tribes[tribeName].players[playerName] = {
+      tribe = players.tribes[tribeName];
+
+      if (!tribe.players[playerName]) {
+        tribe.players[playerName] = {
           totalUnits: {},
           pop: 0,
           villages: {},
         };
       }
 
-      if (!tribes[tribeName].players[playerName].villages[villageName]) {
-        tribes[tribeName].players[playerName].villages[villageName] = {
-          units: {},
-          pop: 0,
-          url: villageUrl,
-        };
-      }
+      player = tribe.players[playerName];
     }
+
+    if (!player.villages[villageName]) {
+      player.villages[villageName] = {
+        units: {},
+        pop: 0,
+        url: villageUrl,
+      };
+    }
+
+    village = player.villages[villageName];
 
     //units
     for (let i = 1; i < rowData.length; i++) {
       const unitName = game_data.units[i - 1];
+      if (unitName === "militia") continue;
+
       const unitCount = parseInt($(rowData[i]).text());
       const unitPop = unitCount * getUnitPop(unitName);
-      console.log(unitName, unitPop);
 
-      if (!playerName) {
-        if (!own.totalUnits[unitName]) {
-          own.totalUnits[unitName] = 0;
+      if (!player.totalUnits[unitName]) {
+        player.totalUnits[unitName] = 0;
+      }
+
+      if (!village.units[unitName]) {
+        village.units[unitName] = 0;
+      }
+
+      player.totalUnits[unitName] += unitCount;
+      player.pop += unitPop;
+      village.units[unitName] += unitCount;
+      village.pop += unitPop;
+
+      if (tribe) {
+        if (!players.totalUnits[unitName]) {
+          players.totalUnits[unitName] = 0;
         }
-
-        if (!own.villages[villageName].units[unitName]) {
-          own.villages[villageName].units[unitName] = 0;
+        if (!tribe.totalUnits[unitName]) {
+          tribe.totalUnits[unitName] = 0;
         }
-
-        own.totalUnits[unitName] += unitCount;
-        own.pop += unitPop;
-        own.villages[villageName].units[unitName] += unitCount;
-        own.villages[villageName].pop += unitPop;
-      } else {
-        if (!tribes[tribeName].totalUnits[unitName]) {
-          tribes[tribeName].totalUnits[unitName] = 0;
-        }
-
-        if (!tribes[tribeName].players[playerName].totalUnits[unitName]) {
-          tribes[tribeName].players[playerName].totalUnits[unitName] = 0;
-        }
-
-        if (
-          !tribes[tribeName].players[playerName].villages[villageName].units[
-            unitName
-          ]
-        ) {
-          tribes[tribeName].players[playerName].villages[villageName].units[
-            unitName
-          ] = 0;
-        }
-
-        tribes[tribeName].totalUnits[unitName] += unitCount;
-        tribes[tribeName].players[playerName].totalUnits[unitName] += unitCount;
-        tribes[tribeName].players[playerName].villages[villageName].units[
-          unitName
-        ] += unitCount;
-        /////////
+        players.totalUnits[unitName] += unitCount;
+        tribe.totalUnits[unitName] += unitCount;
+        tribe.pop += unitPop;
+        players.pop += unitPop;
       }
     }
   });
 
-  return { tribes, own };
+  return { players, own, barbs };
 }
 
 function generateOutput(data) {
   console.log(data);
   tribeRows = "";
-  for (tribeName in data.tribes) {
-    const tribe = data.tribes[tribeName];
+  for (tribeName in data.players.tribes) {
+    const tribe = data.players.tribes[tribeName];
     tribeName = tribeName === "" ? "Tribeless" : tribeName;
     let playerDetails = "";
     let count = 0;
@@ -187,31 +194,46 @@ function generateOutput(data) {
       const player = tribe.players[playerName];
       playerDetails += drawExpandableWidget(
         `${playerName.replaceAll(/[^a-zA-Z\d_-]+/g, "")}_${++count}`,
-        playerName,
-        drawPlayerDetails(player.totalUnits, player.villages)
+        `${playerName} (${player.pop} population)`,
+        drawPlayerDetails(player.totalUnits, player.pop, player.villages)
       );
     }
 
     tribeRows += drawTribeRow(
       tribeName,
       drawUnits(tribe.totalUnits),
+      tribe.pop,
       playerDetails
     );
   }
 
   const tribesTable = drawTable(["Tribe", "Details", "Action"], tribeRows);
-  const ownDetails = drawPlayerDetails(data.own.totalUnits, data.own.villages);
+  const ownDetails = drawPlayerDetails(
+    data.own.totalUnits,
+    data.own.pop,
+    data.own.villages
+  );
+  const barbsDetails = drawPlayerDetails(
+    data.barbs.totalUnits,
+    data.barbs.pop,
+    data.barbs.villages
+  );
 
   return drawResultBox([
     drawExpandableWidget(
       "own_sup_table",
-      "Support in your own villages",
+      `Support in your own villages (${data.own.pop} population)`,
       ownDetails
     ),
     drawExpandableWidget(
       "tribes_sup_table",
-      "Support in other players villages",
+      `Support in other players villages (${data.players.pop} population)`,
       tribesTable
+    ),
+    drawExpandableWidget(
+      "barbs_sup_table",
+      `Support in barbarian villages (${data.barbs.pop} population)`,
+      barbsDetails
     ),
   ]);
 }
@@ -228,11 +250,11 @@ function drawUnits(units) {
   return output;
 }
 
-function drawTribeRow(tribeName, totalUnits, players) {
+function drawTribeRow(tribeName, totalUnits, pop, players) {
   return `<tr>
                     <th rowspan="2" style="width: 10%; text-align: center; font-size: 120%;">${tribeName}</th>
                     <td>
-                        <div style="font-weight: bold;">Total Units (todo - pop):</div>
+                        <div style="font-weight: bold;">Total Units (${pop} population):</div>
                         ${totalUnits}
                     </td>
                     <td>Withdraw</td>
@@ -245,7 +267,7 @@ function drawTribeRow(tribeName, totalUnits, players) {
                 </tr>`;
 }
 
-function drawPlayerDetails(totalUnits, villages) {
+function drawPlayerDetails(totalUnits, totalPop, villages) {
   let unitsPerVillage = "";
   for (villageName in villages) {
     unitsPerVillage += `<tr class="nowrap">
@@ -264,7 +286,7 @@ function drawPlayerDetails(totalUnits, villages) {
                             <tbody>
                                 <tr class="nowrap">
                                     <td colspan="2" style="background-color: #fff5da">
-                                        <div style="font-weight: bold;">Total Units (todo - pop):</div>
+                                        <div style="font-weight: bold;">Total Units (${totalPop} population):</div>
                                             ${drawUnits(totalUnits)}
                                     </td>
                                 </tr>

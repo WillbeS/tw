@@ -64,11 +64,14 @@ function getQueryParams(url) {
 }
 
 function parseVillageData(villageData) {
+  if (villageData.length === 0) return {};
+
   const [village, blank, player, tribe] = $(villageData)
     .find("span > a")
     .toArray();
 
   return {
+    text: villageData.text(),
     playerName: $(player).text(),
     tribeName: $(tribe).text(),
     villageUrl: $(village).attr("href"),
@@ -76,9 +79,13 @@ function parseVillageData(villageData) {
   };
 }
 
+function isBarb(text) {
+  return text.search("(---)") !== -1;
+}
+
 function calculateSupport() {
-  const tribes = {};
-  const barbs = { totalUnits: {}, villages: {} };
+  const players = { totalUnits: {}, pop: 0, tribes: {} };
+  const barbs = { totalUnits: {}, pop: 0, villages: {} };
   const own = { totalUnits: {}, pop: 0, villages: {} };
 
   const tableRows = $("#units_table").find("tbody tr");
@@ -89,9 +96,13 @@ function calculateSupport() {
     }
 
     const rowData = $(row).find("td").toArray();
-    const { playerName, tribeName, villageUrl, villageName } = parseVillageData(
-      $(rowData.shift())
-    );
+    const {
+      text,
+      playerName,
+      tribeName,
+      villageUrl,
+      villageName,
+    } = parseVillageData($(rowData.shift()));
 
     if (!villageName) return;
 
@@ -99,17 +110,17 @@ function calculateSupport() {
     let player = null;
 
     if (!playerName) {
-      player = own;
+      player = isBarb(text) ? barbs : own;
     } else {
-      if (!tribes[tribeName]) {
-        tribes[tribeName] = {
+      if (!players.tribes[tribeName]) {
+        players.tribes[tribeName] = {
           totalUnits: {},
           pop: 0,
           players: {},
         };
       }
 
-      tribe = tribes[tribeName];
+      tribe = players.tribes[tribeName];
 
       if (!tribe.players[playerName]) {
         tribe.players[playerName] = {
@@ -154,23 +165,28 @@ function calculateSupport() {
       village.pop += unitPop;
 
       if (tribe) {
+        if (!players.totalUnits[unitName]) {
+          players.totalUnits[unitName] = 0;
+        }
         if (!tribe.totalUnits[unitName]) {
           tribe.totalUnits[unitName] = 0;
         }
+        players.totalUnits[unitName] += unitCount;
         tribe.totalUnits[unitName] += unitCount;
         tribe.pop += unitPop;
+        players.pop += unitPop;
       }
     }
   });
 
-  return { tribes, own };
+  return { players, own, barbs };
 }
 
 function generateOutput(data) {
   console.log(data);
   tribeRows = "";
-  for (tribeName in data.tribes) {
-    const tribe = data.tribes[tribeName];
+  for (tribeName in data.players.tribes) {
+    const tribe = data.players.tribes[tribeName];
     tribeName = tribeName === "" ? "Tribeless" : tribeName;
     let playerDetails = "";
     let count = 0;
@@ -178,7 +194,7 @@ function generateOutput(data) {
       const player = tribe.players[playerName];
       playerDetails += drawExpandableWidget(
         `${playerName.replaceAll(/[^a-zA-Z\d_-]+/g, "")}_${++count}`,
-        playerName,
+        `${playerName} (${player.pop} population)`,
         drawPlayerDetails(player.totalUnits, player.pop, player.villages)
       );
     }
@@ -197,17 +213,27 @@ function generateOutput(data) {
     data.own.pop,
     data.own.villages
   );
+  const barbsDetails = drawPlayerDetails(
+    data.barbs.totalUnits,
+    data.barbs.pop,
+    data.barbs.villages
+  );
 
   return drawResultBox([
     drawExpandableWidget(
       "own_sup_table",
-      "Support in your own villages",
+      `Support in your own villages (${data.own.pop} population)`,
       ownDetails
     ),
     drawExpandableWidget(
       "tribes_sup_table",
-      "Support in other players villages",
+      `Support in other players villages`,
       tribesTable
+    ),
+    drawExpandableWidget(
+      "barbs_sup_table",
+      `Support in barbarian villages (${data.barbs.pop} population)`,
+      barbsDetails
     ),
   ]);
 }
