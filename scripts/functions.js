@@ -118,7 +118,6 @@ function calculateSupport() {
 }
 
 function getUnitName(unit) {
-  console.log(unit);
   if (unit === "spy") return "Scout";
   if (unit === "marcher") return "Mounted Archer";
   if (unit === "snob") return "Noble";
