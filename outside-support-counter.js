@@ -43,8 +43,9 @@ function getUnitPop(unit) {
 }
 
 function getUnitName(unit) {
+  console.log(unit);
   if (unit === "spy") return "Scout";
-  if (unit === "marcher") return "M. Archer";
+  if (unit === "marcher") return "Mounted Archer";
   if (unit === "snob") return "Noble";
 
   return unit.charAt(0).toUpperCase() + unit.slice(1);
@@ -207,7 +208,7 @@ function generateOutput(data) {
     );
   }
 
-  const tribesTable = drawTable(["Tribe", "Details", "Action"], tribeRows);
+  const tribesTable = drawTable(["Tribe", "Details"], tribeRows);
   const ownDetails = drawPlayerDetails(
     data.own.totalUnits,
     data.own.pop,
@@ -238,13 +239,14 @@ function generateOutput(data) {
   ]);
 }
 
-/////////////////////////////////////////////////////////////////
 // custom html
 function drawUnits(units) {
   let output = "";
   for (const unit in units) {
     if (!units[unit]) continue;
-    output += `<span style="margin-right: 15px">${unit}: ${units[unit]}</span>`;
+    output += `<span style="margin-right: 15px">
+    ${getUnitName(unit)}: ${units[unit]}
+    </span>`;
   }
 
   return output;
@@ -257,11 +259,10 @@ function drawTribeRow(tribeName, totalUnits, pop, players) {
                         <div style="font-weight: bold;">Total Units (${pop} population):</div>
                         ${totalUnits}
                     </td>
-                    <td>Withdraw</td>
                 </tr>
                 <tr>
-                    <td colspan="2">
-                        <div style="font-weight: bold;">Units per Player (todo - pop):</div>
+                    <td>
+                        <div style="font-weight: bold;">Units per Player:</div>
                         ${players}
                     </td>
                 </tr>`;
@@ -271,22 +272,30 @@ function drawPlayerDetails(totalUnits, totalPop, villages) {
   let unitsPerVillage = "";
   for (villageName in villages) {
     unitsPerVillage += `<tr class="nowrap">
-                                    <td style="background-color: #fff5da">
-                                    <a href="${
-                                      villages[villageName].url
-                                    }">${villageName}</a>
+                                    <td style="background-color: #fff5da;">
+                                    <a href="${villages[villageName].url}">
+                                        ${villageName}
+                                    </a>
                                     </td>
-                                    <td style="background-color: #fff5da">
-                                    ${drawUnits(villages[villageName].units)}
+                                </tr>
+                                <tr class="nowrap">
+                                    <td colspan="2" style="background-color: #fff5da; padding-left: 20px; text-align: right">
+                                        ${drawUnits(
+                                          villages[villageName].units
+                                        )}
+                                        <span style="margin-left: 10px; font-weight: bold;">
+                                            (${villages[villageName].pop} pop)
+                                        </span>
                                     </td>
-                                </tr>`;
+                                </tr>
+                                `;
   }
 
   return `<table class="vis" width="100%">
                             <tbody>
-                                <tr class="nowrap">
-                                    <td colspan="2" style="background-color: #fff5da">
-                                        <div style="font-weight: bold;">Total Units (${totalPop} population):</div>
+                                <tr class="nowrap" style="margin-bottom:10px;">
+                                    <td style="background-color: #FADC9B; font-weight:bold">
+                                        <div style="font-weight: bold;">Total Units:</div>
                                             ${drawUnits(totalUnits)}
                                     </td>
                                 </tr>
@@ -295,7 +304,6 @@ function drawPlayerDetails(totalUnits, totalPop, villages) {
                         </table>`;
 }
 
-/////////////////////////////////////////////////////////////////
 // html templates
 function drawTable(headData, rows) {
   headData = headData.map((hd) => `<th>${hd}</th>`).join("");
@@ -315,8 +323,6 @@ function drawResultBox(content) {
   return `<div id="result_box" style="margin-top: 15px">${content}</div>`;
 }
 
-/////////////////////////////////////////////////////////////////
-// Dynamic templates
 function onToggleWidget(id, img) {
   const imgSrc = $(img).attr("src");
   if (imgSrc === "graphic/minus.png") {
