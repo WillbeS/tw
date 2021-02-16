@@ -39,6 +39,73 @@ function getQueryParams(url) {
 }
 
 // custom html
+function generateOutput(data) {
+  console.log(data);
+  const tribesTable = drawTable(
+    ["Tribe", "Details"],
+    drawPlayers(data.players)
+  );
+  const ownDetails = drawPlayerDetails(
+    data.own.totalUnits,
+    data.own.pop,
+    data.own.villages
+  );
+  const barbsDetails = drawPlayerDetails(
+    data.barbs.totalUnits,
+    data.barbs.pop,
+    data.barbs.villages
+  );
+
+  return drawResultBox([
+    drawExpandableWidget(
+      "own_sup_table",
+      `Support in your own villages (${data.own.pop} population)`,
+      ownDetails
+    ),
+    drawExpandableWidget(
+      "tribes_sup_table",
+      `Support in other players villages (${data.players.pop} population)`,
+      tribesTable
+    ),
+    drawExpandableWidget(
+      "barbs_sup_table",
+      `Support in barbarian villages (${data.barbs.pop} population)`,
+      barbsDetails
+    ),
+  ]);
+}
+
+function drawPlayers(players) {
+  if (players.pop === 0) {
+    return `<tr><td style="text-align: center" colspan=2>You have 0 support</td></tr>`;
+  }
+  tribeRows = "";
+  for (tribeName in players.tribes) {
+    const tribe = players.tribes[tribeName];
+
+    tribeName = tribeName === "" ? "Tribeless" : tribeName;
+    let playerDetails = "";
+    let count = 0;
+    for (playerName in tribe.players) {
+      const player = tribe.players[playerName];
+      playerDetails += drawExpandableWidget(
+        `${playerName.replaceAll(/[^a-zA-Z\d_-]+/g, "")}_${++count}`,
+        `${playerName} (${player.pop} population)`,
+        drawPlayerDetails(player.totalUnits, player.pop, player.villages)
+      );
+    }
+
+    tribeRows += drawTribe(
+      tribeName,
+      drawUnits(tribe.totalUnits),
+      tribe.pop,
+      playerDetails
+    );
+  }
+
+  return tribeRows;
+}
+
 function drawUnits(units) {
   let output = "";
   for (const unit in units) {
