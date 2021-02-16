@@ -17,7 +17,8 @@ try {
     const data = calculateSupport();
 
     if ($("#result_box").length <= 0) {
-      $(generateOutput(data)).insertAfter($("#overview_menu"));
+      //$(generateOutput(data)).insertAfter($("#overview_menu"));
+      $("#paged_view_content").prepend(generateOutput(data));
     }
   }
 } catch (objError) {
